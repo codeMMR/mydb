@@ -18,8 +18,9 @@ public interface TransactionManager {
     boolean isCommitted(long xid);
     boolean isAborted(long xid);
     void close();
-
+    //静态工厂类，实现目标路径的事务文件创建
     public static TransactionManagerImpl create(String path) {
+        //创建指定路径下的文件对象(内存操作)
         File f = new File(path+TransactionManagerImpl.XID_SUFFIX);
         try {
             if(!f.createNewFile()) {
@@ -31,8 +32,9 @@ public interface TransactionManager {
         if(!f.canRead() || !f.canWrite()) {
             Panic.panic(Error.FileCannotRWException);
         }
-
+        //NIO高性能访问
         FileChannel fc = null;
+        //负责文件创建和基础访问
         RandomAccessFile raf = null;
         try {
             raf = new RandomAccessFile(f, "rw");
@@ -52,7 +54,7 @@ public interface TransactionManager {
         
         return new TransactionManagerImpl(raf, fc);
     }
-
+    //静态工厂类，读取目标路径的事务文件
     public static TransactionManagerImpl open(String path) {
         File f = new File(path+TransactionManagerImpl.XID_SUFFIX);
         if(!f.exists()) {

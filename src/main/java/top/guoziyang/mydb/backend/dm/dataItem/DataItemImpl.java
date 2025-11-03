@@ -15,18 +15,18 @@ import top.guoziyang.mydb.backend.dm.page.Page;
  * DataSize  2字节，标识Data的长度
  */
 public class DataItemImpl implements DataItem {
-
+    //数据偏移量起始位置
     static final int OF_VALID = 0;
     static final int OF_SIZE = 1;
     static final int OF_DATA = 3;
 
-    private SubArray raw;
-    private byte[] oldRaw;
+    private SubArray raw;//自定义数组片段类，根据偏移量访问数据，避免不必要的拷贝
+    private byte[] oldRaw;//修改前的原始数据
     private Lock rLock;
     private Lock wLock;
     private DataManagerImpl dm;
-    private long uid;
-    private Page pg;
+    private long uid;//数据项唯一标识符，页面号+页内偏移量
+    private Page pg;//页面类，数据项载体
 
     public DataItemImpl(SubArray raw, byte[] oldRaw, Page pg, long uid, DataManagerImpl dm) {
         this.raw = raw;
@@ -40,33 +40,36 @@ public class DataItemImpl implements DataItem {
     }
 
     public boolean isValid() {
-        return raw.raw[raw.start+OF_VALID] == (byte)0;
+        return raw.buffer[raw.start+OF_VALID] == (byte)0;
     }
 
     @Override
     public SubArray data() {
-        return new SubArray(raw.raw, raw.start+OF_DATA, raw.end);
+        return new SubArray(raw.buffer, raw.start+OF_DATA, raw.end);
     }
-
+    //事务修改前的准备工作
     @Override
     public void before() {
         wLock.lock();
+        //标记页面为脏页
         pg.setDirty(true);
-        System.arraycopy(raw.raw, raw.start, oldRaw, 0, oldRaw.length);
+        //备份旧数据到oldRaw
+        System.arraycopy(raw.buffer, raw.start, oldRaw, 0, oldRaw.length);
     }
 
+    //撤销修改,回滚
     @Override
     public void unBefore() {
-        System.arraycopy(oldRaw, 0, raw.raw, raw.start, oldRaw.length);
+        System.arraycopy(oldRaw, 0, raw.buffer, raw.start, oldRaw.length);
         wLock.unlock();
     }
-
+    //提交修改
     @Override
     public void after(long xid) {
-        dm.logDataItem(xid, this);
+        dm.logDataItem(xid, this);//记录redo日志
         wLock.unlock();
     }
-
+//    释放对该数据项的引用
     @Override
     public void release() {
         dm.releaseDataItem(this);

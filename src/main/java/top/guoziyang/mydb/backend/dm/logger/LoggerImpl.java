@@ -30,9 +30,9 @@ public class LoggerImpl implements Logger {
 
     private static final int SEED = 13331;
 
-    private static final int OF_SIZE = 0;
-    private static final int OF_CHECKSUM = OF_SIZE + 4;
-    private static final int OF_DATA = OF_CHECKSUM + 4;
+    private static final int OF_SIZE = 0;//日志长度size的位置（4byte)
+    private static final int OF_CHECKSUM = OF_SIZE + 4;//单条日志校验和的位置（4byte)
+    private static final int OF_DATA = OF_CHECKSUM + 4;//日志数据的位置（变长）
     
     public static final String LOG_SUFFIX = ".log";
 
@@ -42,7 +42,7 @@ public class LoggerImpl implements Logger {
 
     private long position;  // 当前日志指针的位置
     private long fileSize;  // 初始化时记录，log操作不更新
-    private int xChecksum;
+    private int xChecksum;//校验和值,检验文件完整性
 
     LoggerImpl(RandomAccessFile raf, FileChannel fc) {
         this.file = raf;
@@ -84,12 +84,14 @@ public class LoggerImpl implements Logger {
 
     // 检查并移除bad tail
     private void checkAndRemoveTail() {
+        //重置指针
         rewind();
 
         int xCheck = 0;
         while(true) {
             byte[] log = internNext();
             if(log == null) break;
+            //重新计算校验和
             xCheck = calChecksum(xCheck, log);
         }
         if(xCheck != xChecksum) {
@@ -97,6 +99,7 @@ public class LoggerImpl implements Logger {
         }
 
         try {
+            //文件大小截断到当前位置
             truncate(position);
         } catch (Exception e) {
             Panic.panic(e);
@@ -111,6 +114,7 @@ public class LoggerImpl implements Logger {
 
     private int calChecksum(int xCheck, byte[] log) {
         for (byte b : log) {
+            //多项式哈希
             xCheck = xCheck * SEED + b;
         }
         return xCheck;
@@ -121,7 +125,7 @@ public class LoggerImpl implements Logger {
         byte[] log = wrapLog(data);
         ByteBuffer buf = ByteBuffer.wrap(log);
         lock.lock();
-        try {
+        try {//定位文件末尾
             fc.position(fc.size());
             fc.write(buf);
         } catch(IOException e) {
@@ -129,6 +133,7 @@ public class LoggerImpl implements Logger {
         } finally {
             lock.unlock();
         }
+        //更新全局校验和
         updateXChecksum(log);
     }
 
@@ -144,6 +149,7 @@ public class LoggerImpl implements Logger {
     }
 
     private byte[] wrapLog(byte[] data) {
+        //包装日志数据：[Size(4)] [Checksum(4)] [Data]
         byte[] checksum = Parser.int2Byte(calChecksum(0, data));
         byte[] size = Parser.int2Byte(data.length);
         return Bytes.concat(size, checksum, data);
@@ -163,6 +169,7 @@ public class LoggerImpl implements Logger {
         if(position + OF_DATA >= fileSize) {
             return null;
         }
+        //size字段读取
         ByteBuffer tmp = ByteBuffer.allocate(4);
         try {
             fc.position(position);
@@ -174,9 +181,9 @@ public class LoggerImpl implements Logger {
         if(position + size + OF_DATA > fileSize) {
             return null;
         }
-
+        //读取日志记录
         ByteBuffer buf = ByteBuffer.allocate(OF_DATA + size);
-        try {
+        try {//重新定位到开头
             fc.position(position);
             fc.read(buf);
         } catch(IOException e) {
@@ -184,11 +191,14 @@ public class LoggerImpl implements Logger {
         }
 
         byte[] log = buf.array();
+        //重新计算的校验和
         int checkSum1 = calChecksum(0, Arrays.copyOfRange(log, OF_DATA, log.length));
+        //直接读取的校验和
         int checkSum2 = Parser.parseInt(Arrays.copyOfRange(log, OF_CHECKSUM, OF_DATA));
         if(checkSum1 != checkSum2) {
             return null;
         }
+        //移动到下一条日志开始
         position += log.length;
         return log;
     }
@@ -206,7 +216,7 @@ public class LoggerImpl implements Logger {
     }
 
     @Override
-    public void rewind() {
+    public void rewind() {//重置指针，回到第一个日志
         position = 4;
     }
 

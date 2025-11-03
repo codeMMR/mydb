@@ -29,6 +29,7 @@ public interface DataItem {
     SubArray getRaw();
 
     public static byte[] wrapDataItemRaw(byte[] raw) {
+        //将原始数据包装为标准数据项格式[ValidFlag(1字节)][DataSize(2字节)][Data(N字节)]
         byte[] valid = new byte[1];
         byte[] size = Parser.short2Byte((short)raw.length);
         return Bytes.concat(valid, size, raw);
