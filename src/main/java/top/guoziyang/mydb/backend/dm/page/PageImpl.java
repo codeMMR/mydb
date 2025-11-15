@@ -10,7 +10,7 @@ public class PageImpl implements Page {
     private byte[] data;
     private boolean dirty;
     private Lock lock;
-    
+    //页缓存，负责管理页的获取和释放，调用release方法会用pc释放当前页
     private PageCache pc;
 
     public PageImpl(int pageNumber, byte[] data, PageCache pc) {

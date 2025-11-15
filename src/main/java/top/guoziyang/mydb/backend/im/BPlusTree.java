@@ -42,7 +42,8 @@ public class BPlusTree {
         bootLock.lock();
         try {
             SubArray sa = bootDataItem.data();
-            return Parser.parseLong(Arrays.copyOfRange(sa.raw, sa.start, sa.start+8));
+            //解析根节点UID（8位）
+            return Parser.parseLong(Arrays.copyOfRange(sa.buffer, sa.start, sa.start+8));
         } finally {
             bootLock.unlock();
         }
@@ -55,14 +56,15 @@ public class BPlusTree {
             long newRootUid = dm.insert(TransactionManagerImpl.SUPER_XID, rootRaw);
             bootDataItem.before();
             SubArray diRaw = bootDataItem.data();
-            System.arraycopy(Parser.long2Byte(newRootUid), 0, diRaw.raw, diRaw.start, 8);
+            System.arraycopy(Parser.long2Byte(newRootUid), 0, diRaw.buffer, diRaw.start, 8);
             bootDataItem.after(TransactionManagerImpl.SUPER_XID);
         } finally {
             bootLock.unlock();
         }
     }
-
+    //地柜寻找下一个节点
     private long searchLeaf(long nodeUid, long key) throws Exception {
+        //加载当前节点
         Node node = Node.loadNode(this, nodeUid);
         boolean isLeaf = node.isLeaf();
         node.release();
@@ -89,7 +91,9 @@ public class BPlusTree {
         return searchRange(key, key);
     }
 
+   //入口方法：查找逻辑
     public List<Long> searchRange(long leftKey, long rightKey) throws Exception {
+        //获取根节点ID
         long rootUid = rootUid();
         long leafUid = searchLeaf(rootUid, leftKey);
         List<Long> uids = new ArrayList<>();
@@ -98,10 +102,10 @@ public class BPlusTree {
             LeafSearchRangeRes res = leaf.leafSearchRange(leftKey, rightKey);
             leaf.release();
             uids.addAll(res.uids);
-            if(res.siblingUid == 0) {
+            if(res.siblingUid == 0) {//没有更多兄弟节点
                 break;
             } else {
-                leafUid = res.siblingUid;
+                leafUid = res.siblingUid;  //继续搜索下一个叶子结点
             }
         }
         return uids;

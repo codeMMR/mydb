@@ -47,9 +47,9 @@ public class DataItemImpl implements DataItem {
     public SubArray data() {
         return new SubArray(raw.buffer, raw.start+OF_DATA, raw.end);
     }
-    //事务修改前的准备工作
+
     @Override
-    public void before() {
+    public void before() {//事务修改前的准备工作
         wLock.lock();
         //标记页面为脏页
         pg.setDirty(true);

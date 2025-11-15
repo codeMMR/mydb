@@ -11,9 +11,9 @@ import top.guoziyang.mydb.common.Error;
  * AbstractCache 实现了一个引用计数策略的缓存
  */
 public abstract class AbstractCache<T> {
-    private HashMap<Long, T> cache;                     // 实际缓存的数据
-    private HashMap<Long, Integer> references;          // 元素的引用个数
-    private HashMap<Long, Boolean> getting;             // 正在获取某资源的线程
+    private HashMap<Long, T> cache;                     // 实际缓存的数据  key(页号) ->缓存对象
+    private HashMap<Long, Integer> references;          // 元素的引用个数    key->引用计数
+    private HashMap<Long, Boolean> getting;             // 正在获取某资源的线程  key->是否正在加载
 
     private int maxResource;                            // 缓存的最大缓存资源数
     private int count = 0;                              // 缓存中元素的个数
@@ -51,27 +51,27 @@ public abstract class AbstractCache<T> {
             }
 
             // 尝试获取该资源
-            if(maxResource > 0 && count == maxResource) {
+            if(maxResource > 0 && count == maxResource) {//缓存已满
                 lock.unlock();
                 throw Error.CacheFullException;
             }
-            count ++;
-            getting.put(key, true);
+            count ++;     //增加缓存计数
+            getting.put(key, true);//标记为正在加载
             lock.unlock();
             break;
         }
-
+        //加载资源
         T obj = null;
         try {
             obj = getForCache(key);
-        } catch(Exception e) {
+        } catch(Exception e) {  //加载失败清理缓存
             lock.lock();
             count --;
             getting.remove(key);
             lock.unlock();
             throw e;
         }
-
+        //记载成功，更新缓存
         lock.lock();
         getting.remove(key);
         cache.put(key, obj);
@@ -87,8 +87,9 @@ public abstract class AbstractCache<T> {
     protected void release(long key) {
         lock.lock();
         try {
-            int ref = references.get(key)-1;
+            int ref = references.get(key)-1;   //引用计数减一
             if(ref == 0) {
+                //彻底释放
                 T obj = cache.get(key);
                 releaseForCache(obj);
                 references.remove(key);
@@ -109,7 +110,7 @@ public abstract class AbstractCache<T> {
         lock.lock();
         try {
             Set<Long> keys = cache.keySet();
-            for (long key : keys) {
+            for (long key : keys) { //每个都释放。无需重置count
                 T obj = cache.get(key);
                 releaseForCache(obj);
                 references.remove(key);

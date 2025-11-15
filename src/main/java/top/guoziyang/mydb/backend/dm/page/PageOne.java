@@ -12,10 +12,13 @@ import top.guoziyang.mydb.backend.utils.RandomUtil;
  * 用于判断上一次数据库是否正常关闭
  */
 public class PageOne {
+    //从100字节处存储验证消息
     private static final int OF_VC = 100;
+    //有效检查字段的长度8字节，存储随机生成的验证字节
     private static final int LEN_VC = 8;
 
     public static byte[] InitRaw() {
+        //创建空页
         byte[] raw = new byte[PageCache.PAGE_SIZE];
         setVcOpen(raw);
         return raw;
@@ -27,6 +30,7 @@ public class PageOne {
     }
 
     private static void setVcOpen(byte[] raw) {
+        //数据库启动时生成8个随机字节填入100-107字节
         System.arraycopy(RandomUtil.randomBytes(LEN_VC), 0, raw, OF_VC, LEN_VC);
     }
 
@@ -36,6 +40,7 @@ public class PageOne {
     }
 
     private static void setVcClose(byte[] raw) {
+        //设置关闭验证码，将100-107字节的验证码拷贝到108-115字节
         System.arraycopy(raw, OF_VC, raw, OF_VC+LEN_VC, LEN_VC);
     }
 
@@ -44,6 +49,7 @@ public class PageOne {
     }
 
     private static boolean checkVc(byte[] raw) {
+        //检查验证码，将100-107字节的验证码与108-115字节的验证码比较
         return Arrays.equals(Arrays.copyOfRange(raw, OF_VC, OF_VC+LEN_VC), Arrays.copyOfRange(raw, OF_VC+LEN_VC, OF_VC+2*LEN_VC));
     }
 }

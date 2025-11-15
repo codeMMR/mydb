@@ -78,3 +78,36 @@
     预分配内存：oldRaw缓冲区预分配，减少动态分配开销
     锁分离：读写锁分离，提高读并发性能
     局部性原理：相关数据集中存储，提高缓存命中率
+## dm/page
+### 1.首页-PageOne
+    结构：[0-99字节空白][100-107字节:验证码Vc][108-115字节：数据库关闭前复制VC]
+    验证码：验证两处验证码是否相同
+### 2普通页-PageX
+    结构：[[0-1字节: FreeSpaceOffset（记录空闲位置偏移量）] [2字节开始: 实际数据区域]
+    关键函数：
+    System.arraycopy(Object src, int srcPos, Object dest, int destPos, int length)
+    src:原数组，srcPos:原数组复制起始点，dest:复制目标数组，destPos:目标数组复制起始点，length:原数组中复制的长度
+    使用System.arraycopy（快，底层是native方法）
+    short parseShort(byte[] buf) 输入两字节大小的数组，输出short类型整数数字
+    Parser.short2Byte(ofData) 转回2字节数组
+##  datamanager
+    日志结构 ：
+    插入日志：[LogType(1字节)] [XID(8字节)] [Pgno(4字节)] [Offset(2字节)] [RawData(变长)]
+    更新日志：[LogType(1字节)] [XID(8字节)] [UID(8字节)] [OldRaw(变长)] [NewRaw(变长)]
+## recover：
+### 数据恢复核心流程
+    1.确定恢复范围:扫描所有日志，找到最大有效页面号，截断损坏页面
+    2.REDO重做阶段：重新执行所有已提交事务的操作，使用新数据newRaw,确保数据持久性
+    3.UNDO撤销阶段：回滚所有未提交事务的修改，使用旧数据oldRaw,保证事务原子性.同时使用撤销标记防止重复undo,
+### 关键设计
+    关键设计要点
+    1.日志类型：插入日志（记录新数据）和更新日志（同时记录旧值和新值）
+    2.恢复策略：REDO使用新数据重做操作，UNDO使用旧数据撤销操作
+    3.事务处理：根据事务活跃状态决定执行REDO或UNDO
+    4.WAL原则：先写日志后修改数据，确保故障后可恢复
+## BplusTree
+### node结构
+    [LeafFlag（1）][KeyNumber（2）][SiblingUid（8）]（头部）
+    [Son0][Key0][Son1][Key1]...[SonN][KeyN]（数据项）
+    对于内部节点：key为路由键，son为子节点
+    对于叶子节点：key为对应索引键，son处为UID数据记录

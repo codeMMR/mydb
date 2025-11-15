@@ -18,7 +18,7 @@ import top.guoziyang.mydb.backend.dm.pageCache.PageCache;
 import top.guoziyang.mydb.backend.tm.TransactionManager;
 import top.guoziyang.mydb.backend.utils.Panic;
 import top.guoziyang.mydb.backend.utils.Parser;
-
+//数据崩溃核心恢复
 public class Recover {
 
     private static final byte LOG_TYPE_INSERT = 0;
@@ -31,26 +31,27 @@ public class Recover {
         long xid;
         int pgno;
         short offset;
-        byte[] raw;
+        byte[] raw;          // 原始数据
     }
 
     static class UpdateLogInfo {
-        long xid;
-        int pgno;
-        short offset;
-        byte[] oldRaw;
-        byte[] newRaw;
+        long xid;                  // 事务ID
+        int pgno;                // 页面号
+        short offset;            // 页面内偏移量
+        byte[] oldRaw;          // 旧数据
+        byte[] newRaw;          // 新数据
     }
 
     public static void recover(TransactionManager tm, Logger lg, PageCache pc) {
         System.out.println("Recovering...");
-
         lg.rewind();
+        //扫描所有日志找到最大的有效编号
         int maxPgno = 0;
         while(true) {
             byte[] log = lg.next();
             if(log == null) break;
             int pgno;
+            //判断日志类型
             if(isInsertLog(log)) {
                 InsertLogInfo li = parseInsertLog(log);
                 pgno = li.pgno;
@@ -65,6 +66,7 @@ public class Recover {
         if(maxPgno == 0) {
             maxPgno = 1;
         }
+        // 截断，移除损坏页面
         pc.truncateByBgno(maxPgno);
         System.out.println("Truncate to " + maxPgno + " pages.");
 
@@ -85,6 +87,7 @@ public class Recover {
             if(isInsertLog(log)) {
                 InsertLogInfo li = parseInsertLog(log);
                 long xid = li.xid;
+                //只重做已提交事务（非活跃）
                 if(!tm.isActive(xid)) {
                     doInsertLog(pc, log, REDO);
                 }
@@ -99,6 +102,7 @@ public class Recover {
     }
 
     private static void undoTranscations(TransactionManager tm, Logger lg, PageCache pc) {
+       //收集活跃事务日志
         Map<Long, List<byte[]>> logCache = new HashMap<>();
         lg.rewind();
         while(true) {
@@ -136,6 +140,7 @@ public class Recover {
                     doUpdateLog(pc, log, UNDO);
                 }
             }
+            //事务设为中止，防止重复undo
             tm.abort(entry.getKey());
         }
     }
@@ -156,7 +161,7 @@ public class Recover {
         byte[] uidRaw = Parser.long2Byte(di.getUid());
         byte[] oldRaw = di.getOldRaw();
         SubArray raw = di.getRaw();
-        byte[] newRaw = Arrays.copyOfRange(raw.raw, raw.start, raw.end);
+        byte[] newRaw = Arrays.copyOfRange(raw.buffer, raw.start, raw.end);
         return Bytes.concat(logType, xidRaw, uidRaw, oldRaw, newRaw);
     }
 

@@ -34,6 +34,7 @@ public class DataManagerImpl extends AbstractCache<DataItem> implements DataMana
     @Override
     public DataItem read(long uid) throws Exception {
         DataItemImpl di = (DataItemImpl)super.get(uid);
+        //数据项是否有效
         if(!di.isValid()) {
             di.release();
             return null;
@@ -47,13 +48,14 @@ public class DataManagerImpl extends AbstractCache<DataItem> implements DataMana
         if(raw.length > PageX.MAX_FREE_SPACE) {
             throw Error.DataTooLargeException;
         }
-
+        //搜索合适页面
         PageInfo pi = null;
         for(int i = 0; i < 5; i ++) {
             pi = pIndex.select(raw.length);
             if (pi != null) {
                 break;
             } else {
+                //无合适的就创建新页面
                 int newPgno = pc.newPage(PageX.initRaw());
                 pIndex.add(newPgno, PageX.MAX_FREE_SPACE);
             }
@@ -105,9 +107,17 @@ public class DataManagerImpl extends AbstractCache<DataItem> implements DataMana
     }
 
     @Override
+    // UID的64位结构：
+    //[32位页号] [16位未使用] [16位偏移量]
     protected DataItem getForCache(long uid) throws Exception {
+        //提取偏移量 (offset)
+        //(1L << 16) - 1= 0x000000000000FFFF(低16位全为1，高位全为0)
+        //uid & 0xFFFF= 保留uid的低16位，高位清零
+        //(short)强制转换：取结果的后16位
         short offset = (short)(uid & ((1L << 16) - 1));
+        // 无符号右移32位
         uid >>>= 32;
+        //提取页号 (pgno),同上，int取结果后32位
         int pgno = (int)(uid & ((1L << 32) - 1));
         Page pg = pc.getPage(pgno);
         return DataItem.parseDataItem(pg, offset, this);
@@ -142,7 +152,9 @@ public class DataManagerImpl extends AbstractCache<DataItem> implements DataMana
 
     // 初始化pageIndex
     void fillPageIndex() {
+        // 获取数据库总页数
         int pageNumber = pc.getPageNumber();
+        // 遍历所有页面（从第2页开始，第1页是特殊页面）
         for(int i = 2; i <= pageNumber; i ++) {
             Page pg = null;
             try {

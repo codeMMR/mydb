@@ -12,9 +12,11 @@ import top.guoziyang.mydb.backend.utils.Parser;
  * FreeSpaceOffset: 2字节 空闲位置开始偏移
  */
 public class PageX {
-    
+    //普通页开头两字节，表示空闲位置的偏移
     private static final short OF_FREE = 0;
+    //普通页实际数据区，从偏移2个字节开始
     private static final short OF_DATA = 2;
+    //普通页最大空闲空间
     public static final int MAX_FREE_SPACE = PageCache.PAGE_SIZE - OF_DATA;
 
     public static byte[] initRaw() {
@@ -23,6 +25,7 @@ public class PageX {
         return raw;
     }
 
+    //设置空闲空间偏移量，将short类型的偏移量转换为2字节
     private static void setFSO(byte[] raw, short ofData) {
         System.arraycopy(Parser.short2Byte(ofData), 0, raw, OF_FREE, OF_DATA);
     }

@@ -10,7 +10,7 @@ import top.guoziyang.mydb.backend.utils.Panic;
 import top.guoziyang.mydb.common.Error;
 
 public interface PageCache {
-    
+    //页面大小8KB（8192字节）
     public static final int PAGE_SIZE = 1 << 13;
 
     int newPage(byte[] initData);
@@ -21,7 +21,7 @@ public interface PageCache {
     void truncateByBgno(int maxPgno);
     int getPageNumber();
     void flushPage(Page pg);
-
+    //静态工厂方法参数
     public static PageCacheImpl create(String path, long memory) {
         File f = new File(path+PageCacheImpl.DB_SUFFIX);
         try {

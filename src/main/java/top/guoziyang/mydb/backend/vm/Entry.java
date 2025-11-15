@@ -59,7 +59,7 @@ public class Entry {
         try {
             SubArray sa = dataItem.data();
             byte[] data = new byte[sa.end - sa.start - OF_DATA];
-            System.arraycopy(sa.raw, sa.start+OF_DATA, data, 0, data.length);
+            System.arraycopy(sa.buffer, sa.start+OF_DATA, data, 0, data.length);
             return data;
         } finally {
             dataItem.rUnLock();
@@ -70,7 +70,7 @@ public class Entry {
         dataItem.rLock();
         try {
             SubArray sa = dataItem.data();
-            return Parser.parseLong(Arrays.copyOfRange(sa.raw, sa.start+OF_XMIN, sa.start+OF_XMAX));
+            return Parser.parseLong(Arrays.copyOfRange(sa.buffer, sa.start+OF_XMIN, sa.start+OF_XMAX));
         } finally {
             dataItem.rUnLock();
         }
@@ -80,7 +80,7 @@ public class Entry {
         dataItem.rLock();
         try {
             SubArray sa = dataItem.data();
-            return Parser.parseLong(Arrays.copyOfRange(sa.raw, sa.start+OF_XMAX, sa.start+OF_DATA));
+            return Parser.parseLong(Arrays.copyOfRange(sa.buffer, sa.start+OF_XMAX, sa.start+OF_DATA));
         } finally {
             dataItem.rUnLock();
         }
@@ -90,7 +90,7 @@ public class Entry {
         dataItem.before();
         try {
             SubArray sa = dataItem.data();
-            System.arraycopy(Parser.long2Byte(xid), 0, sa.raw, sa.start+OF_XMAX, 8);
+            System.arraycopy(Parser.long2Byte(xid), 0, sa.buffer, sa.start+OF_XMAX, 8);
         } finally {
             dataItem.after(xid);
         }

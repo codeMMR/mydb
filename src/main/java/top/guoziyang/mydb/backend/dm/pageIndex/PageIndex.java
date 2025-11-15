@@ -15,7 +15,7 @@ public class PageIndex {
     private Lock lock;
     private List<PageInfo>[] lists;
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("unchecked")//抑制未经检查的类型转换警告
     public PageIndex() {
         lock = new ReentrantLock();
         lists = new List[INTERVALS_NO+1];
@@ -38,7 +38,8 @@ public class PageIndex {
         lock.lock();
         try {
             int number = spaceSize / THRESHOLD;
-            if(number < INTERVALS_NO) number ++;
+            if(number < INTERVALS_NO) number ++;//向上取整
+            // 从计算出的区间开始，向后查找第一个非空区间
             while(number <= INTERVALS_NO) {
                 if(lists[number].size() == 0) {
                     number ++;
